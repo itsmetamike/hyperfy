@@ -1,5 +1,4 @@
 import { World } from './World'
-
 import { Client } from './systems/Client'
 import { ClientControls } from './systems/ClientControls'
 import { ClientNetwork } from './systems/ClientNetwork'
@@ -8,6 +7,9 @@ import { ClientGraphics } from './systems/ClientGraphics'
 import { ClientEnvironment } from './systems/ClientEnvironment'
 import { ClientStats } from './systems/ClientStats'
 import { ClientEditor } from './systems/ClientEditor'
+// import { FloatingObjects } from './systems/FloatingObjects'
+import { DoubleJump } from './systems/DoubleJump'
+import { registerApps } from '../apps'
 
 export function createClientWorld() {
   const world = new World()
@@ -19,5 +21,8 @@ export function createClientWorld() {
   world.register('environment', ClientEnvironment)
   // world.register('stats', ClientStats)
   world.register('editor', ClientEditor)
+  // world.register('floatingObjects', FloatingObjects)
+  world.register('doubleJump', DoubleJump)
+  registerApps(world)
   return world
 }

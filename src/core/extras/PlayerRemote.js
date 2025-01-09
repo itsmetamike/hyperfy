@@ -21,7 +21,7 @@ export class PlayerRemote {
     this.quaternion = new NetworkedQuaternion(this.base.quaternion, this.world.networkRate)
     this.emote = 'asset://emote-idle.glb'
 
-    const glb = await this.world.loader.load('vrm', 'asset://avatar.vrm')
+    const glb = await this.world.loader.load('vrm', 'asset://itsmetamike.vrm')
     this.vrm = glb.toNodes()
     this.base.add(this.vrm)
 

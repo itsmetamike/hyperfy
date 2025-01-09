@@ -80,7 +80,7 @@ export class PlayerLocal {
     this.base.quaternion.fromArray(this.data.quaternion)
 
     // temp
-    this.world.loader.load('vrm', 'asset://avatar.vrm').then(glb => {
+    this.world.loader.load('vrm', 'asset://itsmetamike.vrm').then(glb => {
       this.vrm = glb.toNodes()
       this.base.add(this.vrm)
     })
@@ -236,34 +236,37 @@ export class PlayerLocal {
         v1.copy(platformPose.p)
         q1.copy(platformPose.q)
         currTransform.compose(v1, q1, SCALE_IDENTITY)
+        
         // get delta transform
         const deltaTransform = m2.multiplyMatrices(currTransform, this.platform.prevTransform.clone().invert())
+        
         // extract delta position and quaternion
         const deltaPosition = v2
         const deltaQuaternion = q2
         const deltaScale = v3
         deltaTransform.decompose(deltaPosition, deltaQuaternion, deltaScale)
-        // apply delta to player
-        const playerPose = this.capsule.getGlobalPose()
-        v4.copy(playerPose.p)
-        q3.copy(playerPose.q)
-        const playerTransform = m3
-        playerTransform.compose(v4, q3, SCALE_IDENTITY)
-        playerTransform.premultiply(deltaTransform)
-        const newPosition = v5
-        const newQuaternion = q4
-        playerTransform.decompose(newPosition, newQuaternion, v6)
-        const newPose = this.capsule.getGlobalPose()
-        newPosition.toPxTransform(newPose)
-        // newQuaternion.toPxTransform(newPose) // capsule doesn't rotate
-        this.capsule.setGlobalPose(newPose)
-        // rotate ghost by Y only
-        e1.setFromQuaternion(deltaQuaternion).reorder('YXZ')
-        e1.x = 0
-        e1.z = 0
-        q1.setFromEuler(e1)
-        this.base.quaternion.multiply(q1)
-        this.base.updateTransform()
+        
+        // apply delta to player, but only if it's significant enough
+        if (deltaPosition.lengthSq() > 0.000001) {  
+          const playerPose = this.capsule.getGlobalPose()
+          v4.copy(playerPose.p)
+          q3.copy(playerPose.q)
+          const playerTransform = m3
+          playerTransform.compose(v4, q3, SCALE_IDENTITY)
+          playerTransform.premultiply(deltaTransform)
+          const newPosition = v5
+          const newQuaternion = q4
+          playerTransform.decompose(newPosition, newQuaternion, v6)
+          
+          // Ensure we're not moving too far in a single frame
+          const maxDelta = 0.1
+          if (v4.distanceTo(newPosition) < maxDelta) {
+            const newPose = this.capsule.getGlobalPose()
+            newPosition.toPxTransform(newPose)
+            this.capsule.setGlobalPose(newPose, true)
+          }
+        }
+        
         // store current transform for next frame
         this.platform.prevTransform.copy(currTransform)
       }
@@ -404,9 +407,14 @@ export class PlayerLocal {
     }
     // if slipping ensure we can't gain upward velocity
     if (this.slipping) {
-      // increase downward velocity to prevent sliding upward when walking at a slope
-      velocity.y -= 0.5
+      // increase downward velocity more aggressively
+      velocity.y -= 2
     }
+
+    // Clamp vertical velocity to prevent excessive floating
+    velocity.y = Math.max(velocity.y, -20)  
+    velocity.y = Math.min(velocity.y, 20)   
+
     this.capsule.setLinearVelocity(velocity.toPxVec3())
 
     // apply move force, projected onto ground normal
@@ -481,7 +489,9 @@ export class PlayerLocal {
     this.cam.position.y += 1.6
 
     // emote
-    if (this.jumping) {
+    if (this.emote === Emotes.DOUBLE_JUMP) {
+      // Keep the double jump animation if it's already set
+    } else if (this.jumping) {
       this.emote = Emotes.FLOAT
     } else if (this.falling) {
       this.emote = Emotes.FLOAT

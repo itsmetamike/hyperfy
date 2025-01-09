@@ -1,6 +1,7 @@
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { VRMLoaderPlugin } from '@pixiv/three-vrm'
+import * as THREE from 'three' // Import THREE
 
 import { System } from './System'
 import { createNode } from '../extras/createNode'
@@ -50,6 +51,21 @@ export class ClientLoader extends System {
       promise = this.rgbeLoader.loadAsync(url).then(texture => {
         this.results.set(key, texture)
         return texture
+      })
+    }
+    if (type === 'texture') {
+      promise = new Promise((resolve, reject) => {
+        const textureLoader = new THREE.TextureLoader()
+        textureLoader.crossOrigin = 'anonymous'
+        textureLoader.load(
+          url,
+          (texture) => {
+            texture.needsUpdate = true
+            resolve(texture)
+          },
+          undefined,
+          (error) => reject(error)
+        )
       })
     }
     if (type === 'glb') {

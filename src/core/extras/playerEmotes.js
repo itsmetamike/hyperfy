@@ -3,6 +3,7 @@ export const Emotes = {
   WALK: 1,
   RUN: 2,
   FLOAT: 3,
+  DOUBLE_JUMP: 4,
 }
 
 export const emotes = {
@@ -10,4 +11,5 @@ export const emotes = {
   1: 'asset://emote-walk.glb',
   2: 'asset://emote-run.glb',
   3: 'asset://emote-float.glb',
+  4: 'asset://emote-double-jump.glb',
 }

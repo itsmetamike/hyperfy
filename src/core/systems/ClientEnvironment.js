@@ -62,9 +62,10 @@ export class ClientEnvironment extends System {
     this.world.client.settings.on('change', this.onSettingsChange)
     this.world.graphics.on('resize', this.onViewportResize)
 
-    // TEMP: base environment
-    const glb = await this.world.loader.load('glb', '/base-environment.glb')
+    // Load round platform
+    const glb = await this.world.loader.load('glb', '/round-platform.glb')
     const root = glb.toNodes()
+    root.scale.set(3, 1, 3) // Scale up by 5x
     root.activate({ world: this.world, physics: true })
 
     // {
@@ -85,12 +86,8 @@ export class ClientEnvironment extends System {
   }
 
   async buildHDR() {
-    // const url = '/dusk3.hdr'
-    const url = '/day2.hdr'
+    const url = '/black-hdr.hdr'
     const texture = await this.world.loader.load('hdr', url)
-    // texture.colorSpace = THREE.NoColorSpace
-    // texture.colorSpace = THREE.SRGBColorSpace
-    // texture.colorSpace = THREE.LinearSRGBColorSpace
     texture.mapping = THREE.EquirectangularReflectionMapping
     this.world.stage.scene.environment = texture
   }
@@ -102,31 +99,15 @@ export class ClientEnvironment extends System {
     const options = csmLevels[this.world.client.settings.shadows]
     this.csm = new CSM({
       mode: 'practical', // uniform, logarithmic, practical, custom
-      // mode: 'custom',
-      // customSplitsCallback: function (cascadeCount, nearDistance, farDistance) {
-      //   return [0.05, 0.2, 0.5]
-      // },
       cascades: 3,
       shadowMapSize: 2048,
       maxFar: 100,
       lightIntensity: 1,
-      lightDirection: new THREE.Vector3(-1, -2, -2).normalize(),
+      lightDirection: new THREE.Vector3(0, -1, 0).normalize(),
       fade: true,
       parent: scene,
       camera: camera,
-      // note: you can play with bias in console like this:
-      // var csm = world.graphics.csm
-      // csm.shadowBias = 0.00001
-      // csm.shadowNormalBias = 0.002
-      // csm.updateFrustums()
-      // shadowBias: 0.00001,
-      // shadowNormalBias: 0.002,
-      // lightNear: 0.0000001,
-      // lightFar: 5000,
-      // lightMargin: 200,
-      // noLastCascadeCutOff: true,
       ...options,
-      // note: you can test changes in console and then call csm.updateFrustrums() to debug
     })
     for (const light of this.csm.lights) {
       light.shadow.intensity = options.shadowIntensity
