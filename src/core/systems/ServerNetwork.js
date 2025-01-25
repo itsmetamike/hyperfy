@@ -27,6 +27,7 @@ export class ServerNetwork extends System {
     this.dirtyBlueprints = new Set()
     this.dirtyApps = new Set()
     this.isServer = true
+    this.queue = []
   }
 
   init({ db }) {
@@ -53,6 +54,10 @@ export class ServerNetwork extends System {
     }
   }
 
+  preFixedUpdate() {
+    this.flush()
+  }
+
   send(name, data, ignoreSocketId) {
     // console.log('->>>', name, data)
     const packet = writePacket(name, data)
@@ -60,6 +65,11 @@ export class ServerNetwork extends System {
       if (socket.id === ignoreSocketId) return
       socket.sendPacket(packet)
     })
+  }
+
+  sendTo(socketId, name, data) {
+    const socket = this.sockets.get(socketId)
+    socket?.send(name, data)
   }
 
   checkSockets() {
@@ -73,6 +83,21 @@ export class ServerNetwork extends System {
       }
     })
     dead.forEach(socket => socket.disconnect())
+  }
+
+  enqueue(socket, method, data) {
+    this.queue.push([socket, method, data])
+  }
+
+  flush() {
+    while (this.queue.length) {
+      try {
+        const [socket, method, data] = this.queue.shift()
+        this[method]?.(socket, data)
+      } catch (err) {
+        console.error(err)
+      }
+    }
   }
 
   save = async () => {
@@ -239,6 +264,7 @@ export class ServerNetwork extends System {
       }
       if (cmd === 'name') {
         const name = arg1
+        if (!name) return
         const player = socket.player
         const id = player.data.id
         const user = player.data.user
@@ -288,12 +314,20 @@ export class ServerNetwork extends System {
     if (entity.isApp) this.dirtyApps.add(entity.data.id)
   }
 
-  onEntityModified = (socket, data) => {
+  onEntityModified = async (socket, data) => {
     // TODO: check client permission
     const entity = this.world.entities.get(data.id)
     entity.modify(data)
     this.send('entityModified', data, socket.id)
-    if (entity.isApp) this.dirtyApps.add(entity.data.id)
+    if (entity.isApp) {
+      // mark for saving
+      this.dirtyApps.add(entity.data.id)
+    }
+    if (entity.isPlayer && data.user) {
+      // update player (only avatar field for now)
+      const { id, avatar } = entity.data.user
+      await this.db('users').where('id', id).update({ avatar })
+    }
   }
 
   onEntityEvent = (socket, event) => {
@@ -308,6 +342,10 @@ export class ServerNetwork extends System {
     this.world.entities.remove(id)
     this.send('entityRemoved', id, socket.id)
     if (entity.isApp) this.dirtyApps.add(id)
+  }
+
+  onPlayerTeleport = (socket, data) => {
+    this.sendTo(data.networkId, 'playerTeleport', data)
   }
 
   onDisconnect = (socket, code) => {

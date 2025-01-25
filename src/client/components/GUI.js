@@ -1,12 +1,13 @@
+import { css } from '@firebolt-dev/css'
 import { useEffect, useMemo, useState } from 'react'
+import { MessageCircleMoreIcon, UnplugIcon, WifiOffIcon } from 'lucide-react'
 
 import { ContextWheel } from './ContextWheel'
 import { InspectPane } from './InspectPane'
 import { CodePane } from './CodePane'
+import { AvatarPane } from './AvatarPane'
 import { ChatBox } from './ChatBox'
-import { css } from '@firebolt-dev/css'
 import { useElemSize } from './useElemSize'
-import { MessageCircleMoreIcon, UnplugIcon, WifiOffIcon } from 'lucide-react'
 
 export function GUI({ world }) {
   const [ref, width, height] = useElemSize()
@@ -30,16 +31,19 @@ function Content({ world, width, height }) {
   const [inspect, setInspect] = useState(null)
   const [code, setCode] = useState(false)
   const [chat, setChat] = useState(() => !touch)
+  const [avatar, setAvatar] = useState(null)
   const [disconnected, setDisconnected] = useState(false)
   useEffect(() => {
     world.on('context', setContext)
     world.on('inspect', setInspect)
     world.on('code', setCode)
+    world.on('avatar', setAvatar)
     world.on('disconnect', setDisconnected)
     return () => {
       world.off('context', setContext)
       world.off('inspect', setInspect)
       world.off('code', setCode)
+      world.off('avatar', setAvatar)
       world.off('disconnect', setDisconnected)
     }
   }, [])
@@ -74,8 +78,9 @@ function Content({ world, width, height }) {
         />
       )}
       {context && <ContextWheel key={context.id} {...context} />}
-      {inspect && <InspectPane world={world} entity={inspect} />}
-      {code && <CodePane world={world} entity={code} />}
+      {inspect && <InspectPane key={`inspect-${inspect.data.id}`} world={world} entity={inspect} />}
+      {inspect && code && <CodePane key={`code-${inspect.data.id}`} world={world} entity={inspect} />}
+      {avatar && <AvatarPane key={avatar.hash} world={world} info={avatar} />}
       {disconnected && <Disconnected />}
     </>
   )
