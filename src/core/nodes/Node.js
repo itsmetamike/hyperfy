@@ -56,6 +56,9 @@ export class Node {
       this.rotation.setFromQuaternion(this.quaternion, undefined, false)
       this.setTransformed()
     })
+    this.scale._onChange(() => {
+      this.setTransformed()
+    })
     this._onPointerEnter = data.onPointerEnter
     this._onPointerLeave = data.onPointerLeave
     this._onPointerDown = data.onPointerDown
@@ -396,6 +399,10 @@ export class Node {
         // detach(node) {
         //   self.detach(node)
         // },
+        clone(recursive) {
+          const node = self.clone(recursive)
+          return node.getProxy()
+        },
         get _ref() {
           if (!secure.allowRef) return null
           return self
