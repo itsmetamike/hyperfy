@@ -123,28 +123,102 @@ fastify.get('/health', async (request, reply) => {
   }
 })
 
-fastify.get('/status', async (request, reply) => {
+fastify.get('/api/dexscreener', async (request, reply) => {
   try {
-    const status = {
-      uptime: Math.round(world.time),
-      protected: process.env.ADMIN_CODE !== undefined ? true : false,
-      connectedUsers: []
-    }
-    for (const socket of world.network.sockets.values()) {  
-      status.connectedUsers.push({
-        id: socket.player.data.user.id,
-        position: socket.player.position.current.toArray(),
-        name: socket.player.data.user.name
-      })
-    }
+    let { chain = 'solana', contractAddress } = request.query;
     
-    return reply.code(200).send(status)
+    // Normalize chain name to lowercase
+    chain = chain.toLowerCase();
+    
+    console.log('Starting price data fetch from DexScreener for chain:', chain, 'search:', contractAddress);
+
+    // Define native tokens for different chains
+    const nativeTokens = {
+      'solana': ['SOL', 'WSOL'],
+      'ethereum': ['ETH', 'WETH'],
+      'bsc': ['BNB', 'WBNB'],
+      'arbitrum': ['ETH', 'WETH'],
+      'polygon': ['MATIC', 'WMATIC'],
+      'avalanche': ['AVAX', 'WAVAX'],
+      'sui': ['SUI', 'WSUI'],
+      'base': ['ETH', 'WETH'],
+      'pulsechain': ['PLS', 'WPLS'],
+      'ton': ['TON', 'WTON']
+    };
+
+    // Validate chain name
+    if (!nativeTokens[chain]) {
+      return reply.code(400).send({
+        error: 'Invalid chain name',
+        validChains: Object.keys(nativeTokens)
+      });
+    }
+
+    if (!contractAddress) {
+      return reply.code(400).send({
+        error: 'Contract address is required'
+      });
+    }
+
+    // Always search first
+    const searchResponse = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${contractAddress}`);
+    console.log('DexScreener search response status:', searchResponse.status);
+
+    if (!searchResponse.ok) {
+      const errorText = await searchResponse.text();
+      console.error('DexScreener search error response:', errorText);
+      throw new Error(`DexScreener Search API error: ${searchResponse.status} - ${errorText}`);
+    }
+
+    const searchData = await searchResponse.json();
+    console.log('DexScreener search results:', JSON.stringify(searchData, null, 2));
+
+    // Get native tokens for the selected chain
+    const chainNativeTokens = nativeTokens[chain] || [];
+    
+    // Find all pairs for this token on the specified chain
+    const chainPairs = searchData.pairs?.filter(pair => pair.chainId === chain);
+
+    if (!chainPairs?.length) {
+      return reply.code(404).send({
+        error: `No pairs found for this token on ${chain}`
+      });
+    }
+
+    // First try to find a pair with native token
+    let targetPair = chainPairs.find(pair => 
+      chainNativeTokens.includes(pair.quoteToken.symbol)
+    );
+
+    // If no native pair found, use the first pair with highest liquidity
+    if (!targetPair) {
+      targetPair = chainPairs.reduce((prev, current) => {
+        const prevLiq = prev.liquidity?.usd || 0;
+        const currentLiq = current.liquidity?.usd || 0;
+        return currentLiq > prevLiq ? current : prev;
+      }, chainPairs[0]);
+    }
+
+    // Get detailed data for the selected pair
+    const pairResponse = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${chain}/${targetPair.pairAddress}`);
+    console.log('DexScreener pair response status:', pairResponse.status);
+
+    if (!pairResponse.ok) {
+      const errorText = await pairResponse.text();
+      console.error('DexScreener pair error response:', errorText);
+      throw new Error(`DexScreener Pair API error: ${pairResponse.status} - ${errorText}`);
+    }
+
+    const pairData = await pairResponse.json();
+    console.log('DexScreener pair data:', JSON.stringify(pairData, null, 2));
+
+    return reply.send(pairData);
   } catch (error) {
-    console.error('Status failed:', error)
-    return reply.code(503).send({
-      status: 'error',
-      timestamp: new Date().toISOString(),
-    })
+    console.error('Error in /api/dexscreener:', error);
+    return reply.code(500).send({ 
+      error: 'Failed to fetch price data',
+      details: error.message
+    });
   }
 })
 

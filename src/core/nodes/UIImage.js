@@ -14,7 +14,7 @@ const defaults = {
 export class UIImage extends Node {
   constructor(data = {}) {
     super(data)
-    this.name = 'uiimage'
+    this.name = 'UIImage'
 
     this.display = data.display === undefined ? defaults.display : data.display
     this.src = data.src === undefined ? defaults.src : data.src
